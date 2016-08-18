@@ -14,7 +14,7 @@
 
 (def num-campaigns 100)
 (def view-capacity-per-window 10)
-(def kafka-event-count  (* 10 1000000)) ; N millions
+(def kafka-event-count  (* 4 1000000)) ; N millions
 (def time-divisor 10000)               ; 10 seconds
 
 (defn make-ids [n]
@@ -74,19 +74,13 @@
                        0))]
 ;          kafka-senders
       (with-open [kafka-o (clojure.java.io/writer "kafka-json.txt")]
-        (doseq [v (partition 100000 (map vector
+    	(binding [*out* kafka-o]
+        (doseq [[n user_id page_id] (map vector
                                          (range kafka-event-count)
                                          (make-ids kafka-event-count)
-                                         (make-ids kafka-event-count)))]
-          (reduce
-           (fn [acc sender]
-             (if (= (mod acc 10000) 0)
-               (println acc))
-             @sender
-             (+ 1 acc))
-           0
-           (doall
-            (for [[n user_id page_id] v]
+                                         (make-ids kafka-event-count))]
+;           (doall
+;            (for [ v]
               (let [json-str (str "{\"user_id\": \"" user_id
                                   "\", \"page_id\": \"" page_id
                                   "\", \"ad_id\": \"" (rand-nth ads)
@@ -94,8 +88,17 @@
                                   "\", \"event_type\": \"" (rand-nth event-types)
                                   "\", \"event_time\": \"" (str (+ start-time (* n 10) skew late-by))
                                   "\", \"ip_address\": \"1.2.3.4\"}")]
-                (.write kafka-o (str json-str "\n"))
-                (send p (record "ad-events" (.getBytes json-str))))))))))))
+                (println (str json-str))
+                )))))))
+;; (send p (record "ad-events" (.getBytes json-str)))
+;          (reduce
+;           (fn [acc sender]
+;             (if (= (mod acc 10000) 0)
+;               (println acc))
+;             @sender
+;             (+ 1 acc))
+;           0
+
 
 ;; Returns a map campaign-id->(timestamp->count)
 (defn dostats []
